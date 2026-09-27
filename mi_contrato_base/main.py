@@ -35,20 +35,37 @@ CONTRACT_DIR = BASE_DIR / "contracts" / "hello-world"
 SRC_LIB = CONTRACT_DIR / "src" / "lib.rs"
 SRC_TEST = CONTRACT_DIR / "src" / "test.rs"
 
-def find_wasm_path() -> Path:
-    posibilidades = [
-        BASE_DIR / "target" / "wasm32v1-none" / "release" / "hello_world.wasm",
-        BASE_DIR / "target" / "wasm32-unknown-unknown" / "release" / "hello_world.wasm",
-        BASE_DIR / "contracts" / "hello-world" / "target" / "wasm32v1-none" / "release" / "hello_world.wasm",
-        BASE_DIR / "contracts" / "hello-world" / "target" / "wasm32-unknown-unknown" / "release" / "hello_world.wasm",
+def find_wasm_path() -> Optional[Path]:
+    """
+    Detecta dinámicamente el archivo .wasm compilado más reciente en el workspace.
+    No depende de ningún nombre quemado (como 'hello_world.wasm').
+    """
+    candidate_dirs = [
+        BASE_DIR / "target" / "wasm32-unknown-unknown" / "release",
+        BASE_DIR / "target" / "wasm32v1-none" / "release",
+        CONTRACT_DIR / "target" / "wasm32-unknown-unknown" / "release",
+        CONTRACT_DIR / "target" / "wasm32v1-none" / "release",
+        BASE_DIR / "target",
+        CONTRACT_DIR / "target",
     ]
-    for p in posibilidades:
-        if p.exists():
-            return p
-    wasm_files = list(BASE_DIR.glob("**/*.wasm"))
+    
+    wasm_files: List[Path] = []
+    
+    for d in candidate_dirs:
+        if d.exists():
+            for f in d.glob("*.wasm"):
+                wasm_files.append(f)
+                
+    if not wasm_files:
+        for f in BASE_DIR.glob("**/*.wasm"):
+            if "incremental" not in str(f) and "deps" not in str(f):
+                wasm_files.append(f)
+                
     if wasm_files:
+        wasm_files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
         return wasm_files[0]
-    return BASE_DIR / "target" / "wasm32v1-none" / "release" / "hello_world.wasm"
+        
+    return None
 
 # ==============================================================================
 # [CONFIG] API KEY DE GEMINI (Cargada desde .env o variable de entorno)
@@ -518,10 +535,13 @@ def ejecutar_cargo_test() -> tuple[bool, str]:
     except Exception as e:
         return (False, f"Error ejecutando cargo test: {str(e)}")
 
-# --- EJECUCIÓN DE STELLAR BUILD ---
+# --- EJECUCIÓN DE COMPILACIÓN (STELLAR BUILD + CARGO BUILD WASM FALLBACK) ---
 def ejecutar_stellar_build() -> tuple[bool, str]:
+    salida_acumulada = ""
+    
+    # 1. Intentar con `stellar contract build`
     try:
-        resultado = subprocess.run(
+        res_stellar = subprocess.run(
             ["stellar", "contract", "build"],
             cwd=CONTRACT_DIR,
             capture_output=True,
@@ -529,10 +549,35 @@ def ejecutar_stellar_build() -> tuple[bool, str]:
             encoding="utf-8",
             errors="replace"
         )
-        salida = f"{resultado.stdout}\n{resultado.stderr}".strip()
-        return (resultado.returncode == 0, salida)
+        salida_acumulada = f"{res_stellar.stdout}\n{res_stellar.stderr}".strip()
+        if res_stellar.returncode == 0:
+            wasm_p = find_wasm_path()
+            if wasm_p and wasm_p.exists():
+                return (True, salida_acumulada)
     except Exception as e:
-        return (False, f"Error ejecutando stellar contract build: {str(e)}")
+        salida_acumulada += f"\nError ejecutando stellar contract build: {str(e)}"
+
+    # 2. Fallback explícito: `cargo build --target wasm32-unknown-unknown --release`
+    for target in ["wasm32-unknown-unknown", "wasm32v1-none"]:
+        try:
+            res_cargo = subprocess.run(
+                ["cargo", "build", "--target", target, "--release"],
+                cwd=CONTRACT_DIR,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace"
+            )
+            out_cargo = f"{res_cargo.stdout}\n{res_cargo.stderr}".strip()
+            salida_acumulada += f"\nCargo build target {target}:\n{out_cargo}"
+            if res_cargo.returncode == 0:
+                wasm_p = find_wasm_path()
+                if wasm_p and wasm_p.exists():
+                    return (True, salida_acumulada)
+        except Exception as ex:
+            salida_acumulada += f"\nError ejecutando cargo build ({target}): {str(ex)}"
+
+    return (False, salida_acumulada)
 
 # --- EXTRACTOR DE INTERFAZ DEL CONTRATO (FUNCIONES Y PARÁMETROS) ---
 def extraer_interfaz_contrato() -> List[Dict[str, Any]]:
@@ -982,6 +1027,12 @@ fn test() {
 
     # 4. DESPLEGAR EN STELLAR TESTNET
     wasm_target_path = find_wasm_path()
+    if not wasm_target_path or not wasm_target_path.exists():
+        raise HTTPException(
+            status_code=500,
+            detail="Error de compilación: No se encontró ningún archivo .wasm generado tras la compilación con Cargo/Stellar CLI."
+        )
+
     print(f"\n[SISTEMA] Desplegando archivo WASM ({wasm_target_path}) a Stellar Testnet...")
     cmd_deploy = [
         "stellar", "contract", "deploy",
