@@ -32,7 +32,7 @@ RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 COPY . .
 
 # Precompilar dependencias de Soroban para que los deploys y tests sean ultrarrápidos
-RUN cd contracts/hello-world && cargo test --no-run || true
+RUN cd contracts/hello-world && cargo test --no-run && stellar contract build || true
 
 # Configurar variables de entorno (RAM y CPU optimizados para Render)
 ENV PORT=8000

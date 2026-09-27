@@ -34,7 +34,21 @@ BASE_DIR = Path(__file__).resolve().parent
 CONTRACT_DIR = BASE_DIR / "contracts" / "hello-world"
 SRC_LIB = CONTRACT_DIR / "src" / "lib.rs"
 SRC_TEST = CONTRACT_DIR / "src" / "test.rs"
-WASM_PATH = BASE_DIR / "target" / "wasm32v1-none" / "release" / "hello_world.wasm"
+
+def find_wasm_path() -> Path:
+    posibilidades = [
+        BASE_DIR / "target" / "wasm32v1-none" / "release" / "hello_world.wasm",
+        BASE_DIR / "target" / "wasm32-unknown-unknown" / "release" / "hello_world.wasm",
+        BASE_DIR / "contracts" / "hello-world" / "target" / "wasm32v1-none" / "release" / "hello_world.wasm",
+        BASE_DIR / "contracts" / "hello-world" / "target" / "wasm32-unknown-unknown" / "release" / "hello_world.wasm",
+    ]
+    for p in posibilidades:
+        if p.exists():
+            return p
+    wasm_files = list(BASE_DIR.glob("**/*.wasm"))
+    if wasm_files:
+        return wasm_files[0]
+    return BASE_DIR / "target" / "wasm32v1-none" / "release" / "hello_world.wasm"
 
 # ==============================================================================
 # [CONFIG] API KEY DE GEMINI (Cargada desde .env o variable de entorno)
@@ -258,11 +272,12 @@ def ejecutar_stellar_build() -> tuple[bool, str]:
 
 # --- EXTRACTOR DE INTERFAZ DEL CONTRATO (FUNCIONES Y PARÁMETROS) ---
 def extraer_interfaz_contrato() -> List[Dict[str, Any]]:
-    if not WASM_PATH.exists():
+    wasm_p = find_wasm_path()
+    if not wasm_p.exists():
         return []
     try:
         res = subprocess.run(
-            ["stellar", "contract", "info", "interface", "--wasm", str(WASM_PATH), "--output", "json-formatted"],
+            ["stellar", "contract", "info", "interface", "--wasm", str(wasm_p), "--output", "json-formatted"],
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -695,10 +710,11 @@ fn test() {
     audit_report = auditar_seguridad_contrato(codigo_rust, gemini_client)
 
     # 4. DESPLEGAR EN STELLAR TESTNET
-    print(f"\n[SISTEMA] Desplegando archivo WASM a Stellar Testnet...")
+    wasm_target_path = find_wasm_path()
+    print(f"\n[SISTEMA] Desplegando archivo WASM ({wasm_target_path}) a Stellar Testnet...")
     cmd_deploy = [
         "stellar", "contract", "deploy",
-        "--wasm", str(WASM_PATH),
+        "--wasm", str(wasm_target_path),
         "--source", "alice",
         "--network", "testnet"
     ]
