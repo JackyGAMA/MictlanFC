@@ -2,21 +2,21 @@
 use soroban_sdk::{contract, contractimpl, Address, Env, Symbol, symbol_short};
 
 #[contract]
-pub struct ContratoDePruebaDina;
+pub struct PayrollContract;
 
 #[contractimpl]
-impl ContratoDePruebaDina {
-    pub fn initialize(env: Env, owner: Address) -> Symbol {
-        owner.require_auth();
-        symbol_short!("INIT_OK")
+impl PayrollContract {
+    pub fn registrar_empleado(env: Env, admin: Address, empleado: Address, salario: i128) -> Symbol {
+        admin.require_auth();
+        symbol_short!("REGOK")
     }
 
-    pub fn ejecutar_accion(env: Env, caller: Address) -> Symbol {
-        caller.require_auth();
-        symbol_short!("SUCCESS")
+    pub fn pagar_nomina(env: Env, admin: Address, empleado: Address) -> Symbol {
+        admin.require_auth();
+        symbol_short!("PAGO_OK")
     }
 
-    pub fn consultar_estado(env: Env) -> Symbol {
+    pub fn consultar_empleado(env: Env, empleado: Address) -> Symbol {
         symbol_short!("ACTIVO")
     }
 }

@@ -3,11 +3,11 @@ use super::*;
 use soroban_sdk::{testutils::Address as _, Address, Env};
 
 #[test]
-fn test_custom() {
+fn test_payroll() {
     let env = Env::default();
     env.mock_all_auths();
-    let contract_id = env.register(ContratoDePruebaDina, ());
-    let client = ContratoDePruebaDinaClient::new(&env, &contract_id);
-    let owner = Address::generate(&env);
-    assert_eq!(client.initialize(&owner), symbol_short!("INIT_OK"));
+    let contract_id = env.register(PayrollContract, ());
+    let client = PayrollContractClient::new(&env, &contract_id);
+    let emp = Address::generate(&env);
+    assert_eq!(client.consultar_empleado(&emp), symbol_short!("ACTIVO"));
 }

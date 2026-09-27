@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import shutil
 import traceback
 import subprocess
 from pathlib import Path
@@ -66,6 +67,30 @@ def find_wasm_path() -> Optional[Path]:
         return wasm_files[0]
         
     return None
+
+def sync_wasm_artifacts(wasm_src: Optional[Path]):
+    """
+    Sincroniza y copia el archivo .wasm generado a todas las rutas esperadas por Stellar CLI y Docker en Render,
+    garantizando que la ruta estática '/app/target/wasm32v1-none/release/hello_world.wasm' siempre exista.
+    """
+    if not wasm_src or not wasm_src.exists():
+        return
+        
+    destinos = [
+        BASE_DIR / "target" / "wasm32v1-none" / "release" / "hello_world.wasm",
+        BASE_DIR / "target" / "wasm32-unknown-unknown" / "release" / "hello_world.wasm",
+        CONTRACT_DIR / "target" / "wasm32v1-none" / "release" / "hello_world.wasm",
+        CONTRACT_DIR / "target" / "wasm32-unknown-unknown" / "release" / "hello_world.wasm",
+    ]
+    
+    for d in destinos:
+        try:
+            d.parent.mkdir(parents=True, exist_ok=True)
+            if d.resolve() != wasm_src.resolve():
+                shutil.copy2(wasm_src, d)
+                print(f"[SISTEMA] [SYNC WASM] Copiado exitoso hacia: {d}")
+        except Exception as e:
+            print(f"[WARN] No se pudo copiar WASM a {d}: {e}")
 
 # ==============================================================================
 # [CONFIG] API KEY DE GEMINI (Cargada desde .env o variable de entorno)
@@ -553,6 +578,7 @@ def ejecutar_stellar_build() -> tuple[bool, str]:
         if res_stellar.returncode == 0:
             wasm_p = find_wasm_path()
             if wasm_p and wasm_p.exists():
+                sync_wasm_artifacts(wasm_p)
                 return (True, salida_acumulada)
     except Exception as e:
         salida_acumulada += f"\nError ejecutando stellar contract build: {str(e)}"
@@ -573,6 +599,7 @@ def ejecutar_stellar_build() -> tuple[bool, str]:
             if res_cargo.returncode == 0:
                 wasm_p = find_wasm_path()
                 if wasm_p and wasm_p.exists():
+                    sync_wasm_artifacts(wasm_p)
                     return (True, salida_acumulada)
         except Exception as ex:
             salida_acumulada += f"\nError ejecutando cargo build ({target}): {str(ex)}"
@@ -1032,6 +1059,8 @@ fn test() {
             status_code=500,
             detail="Error de compilación: No se encontró ningún archivo .wasm generado tras la compilación con Cargo/Stellar CLI."
         )
+
+    sync_wasm_artifacts(wasm_target_path)
 
     print(f"\n[SISTEMA] Desplegando archivo WASM ({wasm_target_path}) a Stellar Testnet...")
     cmd_deploy = [
