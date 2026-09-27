@@ -1,4 +1,4 @@
-FROM rust:1.84-bookworm
+FROM rust:bookworm
 
 # Instalar dependencias del sistema, Python y librerías nativas requeridas por stellar-cli
 RUN apt-get update && apt-get install -y \
@@ -12,8 +12,8 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/
 
-# Instalar target de Soroban para Rust
-RUN rustup target add wasm32v1-none
+# Instalar targets de WASM para Rust (wasm32v1-none y fallback wasm32-unknown-unknown)
+RUN rustup target add wasm32v1-none || rustup target add wasm32-unknown-unknown
 
 # Instalar stellar-cli precompilado (v28.0.0) para Linux x86_64
 RUN curl -L https://github.com/stellar/stellar-cli/releases/download/v28.0.0/stellar-cli-28.0.0-x86_64-unknown-linux-gnu.tar.gz -o stellar.tar.gz \
@@ -32,13 +32,16 @@ RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 COPY . .
 
 # Precompilar dependencias de Soroban para que los deploys y tests sean ultrarrápidos
-RUN cd contracts/hello-world && cargo check --target wasm32v1-none && cargo test --no-run || true
+RUN cd contracts/hello-world && cargo test --no-run || true
 
-# Configurar variables de entorno
+# Configurar variables de entorno (RAM y CPU optimizados para Render)
 ENV PORT=8000
 ENV PYTHONUNBUFFERED=1
+ENV CARGO_BUILD_JOBS=1
+ENV RUSTFLAGS="-C codegen-units=1"
 
 EXPOSE 8000
 
 # Iniciar servidor FastAPI
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+

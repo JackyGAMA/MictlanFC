@@ -1328,7 +1328,11 @@ def build_index():
                 loading.style.display = 'none';
                 btn.disabled = false;
                 console.error(err);
-                alert("No se pudo conectar con el servidor backend (" + BACKEND_URL + "). Asegurate de que 'python main.py' este ejecutandose en la terminal.");
+                if (window.location.origin.includes("onrender.com")) {{
+                    alert("El servidor de Render está respondiendo o iniciando su contenedor. Por favor haz clic en 'Generar' nuevamente en unos segundos.");
+                }} else {{
+                    alert("No se pudo conectar con el servidor backend (" + BACKEND_URL + "). Asegurate de que 'python main.py' esté ejecutándose.");
+                }}
             }}
         }}
 
