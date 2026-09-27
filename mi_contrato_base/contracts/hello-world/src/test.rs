@@ -1,29 +1,12 @@
 #![cfg(test)]
-
 use super::*;
-use soroban_sdk::{testutils::Address as _, Address, Env};
+use soroban_sdk::{symbol_short, vec, Env};
 
 #[test]
-fn test_token_and_faucet() {
+fn test_hello() {
     let env = Env::default();
-    env.mock_all_auths();
-
-    let contract_id = env.register(TokenContract, ());
-    let client = TokenContractClient::new(&env, &contract_id);
-
-    let admin = Address::generate(&env);
-    let user1 = Address::generate(&env);
-    let user2 = Address::generate(&env);
-
-    client.initialize(&admin, &100);
-    assert_eq!(client.get_faucet_amount(), 100);
-
-    // Test faucet
-    client.faucet(&user1);
-    assert_eq!(client.balance(&user1), 100);
-
-    // Test transfer
-    client.transfer(&user1, &user2, &30);
-    assert_eq!(client.balance(&user1), 70);
-    assert_eq!(client.balance(&user2), 30);
+    let contract_id = env.register(HelloWorldContract, ());
+    let client = HelloWorldContractClient::new(&env, &contract_id);
+    let result = client.hello(&symbol_short!("Mundo"));
+    assert_eq!(result, vec![&env, symbol_short!("Hola"), symbol_short!("Mundo")]);
 }
