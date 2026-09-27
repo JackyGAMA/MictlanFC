@@ -1122,11 +1122,11 @@ def build_index():
     <script>
         // --- GESTIÓN DE CONFIGURACIÓN Y BACKEND URL ---
         function getBackendUrl() {{
-            const guardado = localStorage.getItem('backend_url');
-            if (guardado) return guardado;
             if (window.location.origin.startsWith('http')) {{
                 return window.location.origin;
             }}
+            const guardado = localStorage.getItem('backend_url');
+            if (guardado) return guardado;
             return 'http://127.0.0.1:8000';
         }}
 

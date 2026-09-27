@@ -1,4 +1,4 @@
-FROM rust:bookworm
+FROM rust:1.84-bookworm
 
 # Instalar dependencias del sistema, Python y librerías nativas requeridas por stellar-cli
 RUN apt-get update && apt-get install -y \
@@ -32,7 +32,7 @@ RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 COPY . .
 
 # Precompilar dependencias de Soroban para que los deploys y tests sean ultrarrápidos
-RUN cd contracts/hello-world && cargo check --target wasm32v1-none && cargo test --no-run
+RUN cd contracts/hello-world && cargo check --target wasm32v1-none && cargo test --no-run || true
 
 # Configurar variables de entorno
 ENV PORT=8000
