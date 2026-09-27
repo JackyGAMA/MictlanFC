@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: brevik-stellar
+    env: docker
+    dockerfilePath: Dockerfile
+    plan: free
+    region: oregon
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false

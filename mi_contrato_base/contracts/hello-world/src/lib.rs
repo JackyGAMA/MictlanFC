@@ -108,3 +108,6 @@ impl TokenContract {
             .ok_or(Error::NotInitialized)
     }
 }
+
+#[cfg(test)]
+mod test;

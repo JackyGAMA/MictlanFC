@@ -4,3 +4,8 @@ target
 # Local settings
 .soroban
 .stellar
+
+# Python
+__pycache__/
+*.pyc
+.env
